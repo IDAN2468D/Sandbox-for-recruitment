@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => {
     define: {
       // Robustly polyfill process.env.API_KEY for the browser
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
+    },
+    preview: {
+      allowedHosts: [
+        'sandbox-for-recruitment.onrender.com'
+      ]
     }
   };
 });
