@@ -1,12 +1,62 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { InterviewQuestion } from '../types';
-import { MessageSquare, Target, Code, Brain, Zap, Scale, HeartHandshake } from 'lucide-react';
+import { MessageSquare, Target, Code, Brain, Zap, Scale, HeartHandshake, Volume2, Loader2, Square } from 'lucide-react';
+import { generateSpeech } from '../services/geminiService';
 
 interface InterviewGuideViewProps {
   questions: InterviewQuestion[];
 }
 
 const InterviewGuideView: React.FC<InterviewGuideViewProps> = ({ questions }) => {
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [currentSource, setCurrentSource] = useState<AudioBufferSourceNode | null>(null);
+
+  const handlePlay = async (id: string, text: string) => {
+      // Stop current audio if playing
+      if (currentSource) {
+          currentSource.stop();
+          setCurrentSource(null);
+      }
+      if (playingId === id) {
+          setPlayingId(null);
+          return;
+      }
+
+      setPlayingId(id);
+
+      try {
+          const base64Audio = await generateSpeech(text);
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          setAudioContext(ctx);
+
+          const binaryString = atob(base64Audio);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          
+          const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(ctx.destination);
+          
+          source.onended = () => {
+              setPlayingId(null);
+              setCurrentSource(null);
+          };
+
+          source.start(0);
+          setCurrentSource(source);
+
+      } catch (error) {
+          console.error("Audio playback error", error);
+          setPlayingId(null);
+          alert("שגיאה בניגון אודיו");
+      }
+  };
+
   const getSkillTypeHebrew = (type: string) => {
     switch(type) {
         case "Hard Skill": return "מיומנות טכנית";
@@ -53,9 +103,9 @@ const InterviewGuideView: React.FC<InterviewGuideViewProps> = ({ questions }) =>
         {questions.map((q, index) => (
           <div 
             key={q.id} 
-            className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow group"
+            className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative"
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-4 pl-10">
               <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
                 {index + 1}
               </div>
@@ -74,10 +124,18 @@ const InterviewGuideView: React.FC<InterviewGuideViewProps> = ({ questions }) =>
                   </span>
                 </div>
               </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-                 <MessageSquare className="w-5 h-5 text-slate-300" />
-              </div>
             </div>
+            
+            <button
+                onClick={() => handlePlay(q.id, q.question)}
+                className={`absolute top-5 left-5 p-2 rounded-full transition-all border
+                    ${playingId === q.id 
+                        ? 'bg-red-50 text-red-600 border-red-200' 
+                        : 'bg-white text-slate-400 border-slate-200 hover:text-blue-600 hover:border-blue-200'}`}
+                title="הקרא שאלה"
+            >
+                {playingId === q.id ? <Square className="w-4 h-4 fill-current" /> : <Volume2 className="w-4 h-4" />}
+            </button>
           </div>
         ))}
       </div>

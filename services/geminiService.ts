@@ -12,12 +12,12 @@ const getClient = () => {
 const MODEL_NAME = "gemini-3-pro-preview";
 const THINKING_BUDGET = 32768;
 
-export const generateJobAssets = async (rawNotes: string): Promise<{ jobDescription: JobDescription, interviewQuestions: InterviewQuestion[] }> => {
+export const generateJobAssets = async (rawNotes: string, imageBase64?: string): Promise<{ jobDescription: JobDescription, interviewQuestions: InterviewQuestion[] }> => {
     const ai = getClient();
     
-    const prompt = `
+    const promptText = `
     You are an expert Recruitment Consultant speaking Hebrew.
-    Based on the following raw notes, generate a comprehensive Job Description and an Extended Interview Guide in Hebrew.
+    Based on the following raw notes (and attached image if provided), generate a comprehensive Job Description and an Extended Interview Guide in Hebrew.
     
     Raw Notes:
     ${rawNotes}
@@ -50,9 +50,21 @@ export const generateJobAssets = async (rawNotes: string): Promise<{ jobDescript
     Return JSON only. All strings in Hebrew.
     `;
 
+    const contents = [];
+    if (imageBase64) {
+        contents.push({
+            inlineData: {
+                mimeType: "image/jpeg",
+                data: imageBase64
+            }
+        });
+        contents.push({ text: "Please also analyze this image which contains additional notes or context for the role." });
+    }
+    contents.push({ text: promptText });
+
     const response = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: prompt,
+        contents: contents,
         config: {
             thinkingConfig: { thinkingBudget: THINKING_BUDGET },
             responseMimeType: "application/json",
@@ -113,6 +125,25 @@ export const generateJobAssets = async (rawNotes: string): Promise<{ jobDescript
         jobDescription: result.jobDescription,
         interviewQuestions: questionsWithIds
     };
+};
+
+export const generateSpeech = async (text: string): Promise<string> => {
+    const ai = getClient();
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: {
+            parts: [{ text: text }]
+        },
+        config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+                voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: 'Kore' }
+                }
+            }
+        }
+    });
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
 };
 
 export const generateCandidateProfiles = async (jd: JobDescription, questions: InterviewQuestion[]): Promise<CandidateProfile[]> => {
@@ -323,7 +354,8 @@ export const streamChatResponse = async (
         model: MODEL_NAME,
         config: {
             systemInstruction,
-            thinkingConfig: { thinkingBudget: THINKING_BUDGET }
+            thinkingConfig: { thinkingBudget: THINKING_BUDGET },
+            tools: [{ googleMaps: {} }] // Enable Google Maps Grounding
         },
         history: history.map(h => ({
             role: h.role,

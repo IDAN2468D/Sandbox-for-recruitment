@@ -16,11 +16,11 @@ const App: React.FC = () => {
   const [isGeneratingAdvanced, setIsGeneratingAdvanced] = useState(false);
   const [activeTab, setActiveTab] = useState<'jd' | 'guide' | 'profiles' | 'advanced'>('jd');
 
-  const handleGenerate = async (rawNotes: string) => {
+  const handleGenerate = async (rawNotes: string, imageBase64?: string) => {
     setIsGenerating(true);
     setAssets({}); // Reset
     try {
-      const result = await generateJobAssets(rawNotes);
+      const result = await generateJobAssets(rawNotes, imageBase64);
       setAssets({
         jobDescription: result.jobDescription,
         interviewQuestions: result.interviewQuestions,
@@ -108,7 +108,7 @@ const App: React.FC = () => {
                     <Layout className="w-10 h-10 opacity-50" />
                 </div>
                 <h3 className="text-xl font-semibold text-slate-600 mb-2">מוכן ליצירה</h3>
-                <p className="max-w-md">הזן את דרישות התפקיד מימין וראה כיצד ה-AI יוצר את מסמכי הגיוס שלך באופן מיידי.</p>
+                <p className="max-w-md">הזן את דרישות התפקיד מימין (טקסט או תמונה) וראה כיצד ה-AI יוצר את מסמכי הגיוס שלך באופן מיידי.</p>
               </div>
             ) : (
               <>
